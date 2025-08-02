@@ -10,6 +10,9 @@ class TtsController extends GetxController {
   //Text Controller
   final TextEditingController textController = TextEditingController();
 
+  //play/pause
+  final isPlaying = false.obs;
+
   //Status Message
   final RxString statusMessage = ''.obs;
 
@@ -23,6 +26,14 @@ class TtsController extends GetxController {
   void onInit() {
     super.onInit();
     loadSupportedLanguages();
+
+    statusMessage.value = 'Tap to Play';
+
+    // Reset to play when speaking is complete
+    tts.setCompletionHandler(() {
+      isPlaying.value = false;
+      statusMessage.value = 'Speech completed.';
+    });
   }
 
   void loadSupportedLanguages() async {
@@ -37,21 +48,31 @@ class TtsController extends GetxController {
     }
   }
 
-  void onShowTextPressed()async{
+  void togglePlayPause(){
     final typedText = textController.text.trim();
-    if(typedText.isEmpty){
+    if (typedText.isEmpty) {
       statusMessage.value = 'Please Enter Some Text';
-    }else{
-      statusMessage.value = 'You typed: $typedText';
+      return; // Don't proceed
+    }
+    isPlaying.value = !isPlaying.value;
+    if (isPlaying.value) {
+      speakText();
+    } else {
+      pauseAudio();
+    }
+  }
+
+  Future<void> checkLanguageSupport(String languageCode) async {
+    bool isSupported = await tts.isLanguageAvailable(languageCode);
+    if (!isSupported) {
+      statusMessage.value = "Language not supported on this device.";
+    } else {
+      await tts.setLanguage(languageCode);
     }
   }
 
   void speakText()async{
     final typedText = textController.text.trim();
-    if(typedText.isEmpty){
-      statusMessage.value = 'Please Enter Some Text';
-      return;
-    }else{
         await tts.setLanguage(selectedLanguage.value);
 
         // Optionally set pitch, rate, volume
@@ -60,7 +81,11 @@ class TtsController extends GetxController {
 
         await tts.speak(typedText);
         statusMessage.value = 'Speaking...';
-    }
+  }
+
+  void pauseAudio()async{
+    await tts.pause();
+    statusMessage.value = 'Speech Paused';
   }
 
   @override
